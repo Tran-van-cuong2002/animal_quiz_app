@@ -1,0 +1,47 @@
+{
+  "project_info": {
+    "project_number": "387252457796",
+    "project_id": "animalquizapp-497b5",
+    "storage_bucket": "animalquizapp-497b5.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:387252457796:android:f17c38c6ad9b70400f0711",
+        "android_client_info": {
+          "package_name": "com.example.animal_quiz_app"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "387252457796-m2ql450o448gtm1bum1d2k30cjd4s291.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.example.animal_quiz_app",
+            "certificate_hash": "a9bc0a1aff83d8f9095109a4c491b4afcf48e287"
+          }
+        },
+        {
+          "client_id": "387252457796-kt7e44mvbe77tcfrsfmfu4ffmevr04eq.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCPHF7JSeijcAQFjExRemW8ZA3wSdlFqXM"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "387252457796-kt7e44mvbe77tcfrsfmfu4ffmevr04eq.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
