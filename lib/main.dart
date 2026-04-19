@@ -1,6 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
-import 'package:audioplayers/audioplayers.dart';
+import 'package:audioplayers/audioplayers.dart' hide Source; // Ẩn Source để không xung đột với Firebase
 import 'package:confetti/confetti.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:firebase_core/firebase_core.dart';
@@ -8,8 +8,10 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:cached_network_image/cached_network_image.dart';
-import 'package:flutter_cache_manager/flutter_cache_manager.dart';
 
+// ==========================================
+// HÀM MAIN
+// ==========================================
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await Firebase.initializeApp();
@@ -50,7 +52,6 @@ class Animal {
     required this.options
   });
 
-  // MỚI: Hàm chuyển đổi dữ liệu từ Firebase
   factory Animal.fromMap(Map<String, dynamic> data) {
     return Animal(
       name: data['name'] ?? '',
@@ -82,12 +83,14 @@ class _StartScreenState extends State<StartScreen> {
     _loadPlayerName();
   }
 
-  // Lấy tên từ bộ nhớ máy
   _loadPlayerName() async {
-    SharedPreferences prefs = await SharedPreferences.getInstance();
-    setState(() {
-      _nameController.text = (prefs.getString('playerName') ?? "");
-    });
+    final user = FirebaseAuth.instance.currentUser;
+    if (user == null) {
+      SharedPreferences prefs = await SharedPreferences.getInstance();
+      setState(() {
+        _nameController.text = (prefs.getString('playerName') ?? "");
+      });
+    }
   }
 
   _savePlayerName(String name) async {
@@ -128,7 +131,6 @@ class _StartScreenState extends State<StartScreen> {
     );
   }
 
-  // --- HÀM ĐĂNG NHẬP CHỦ ĐỘNG TỪ MENU ---
   void _login() async {
     try {
       final GoogleSignInAccount? googleUser = await GoogleSignIn().signIn();
@@ -139,32 +141,27 @@ class _StartScreenState extends State<StartScreen> {
           idToken: googleAuth.idToken,
         );
         await FirebaseAuth.instance.signInWithCredential(credential);
-        setState(() {}); // Cập nhật lại giao diện
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Đăng nhập thành công! 🌟')));
-        }
+        setState(() {});
+        if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Đăng nhập thành công! 🌟')));
       }
     } catch (e) {
       debugPrint("Lỗi đăng nhập: $e");
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Đăng nhập thất bại, vui lòng thử lại!')));
-      }
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Đăng nhập thất bại, vui lòng thử lại!')));
     }
   }
 
   void _logout() async {
     await GoogleSignIn().signOut();
     await FirebaseAuth.instance.signOut();
-    setState(() {});
-    if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Đã đăng xuất tài khoản Google')));
-    }
+    setState(() {
+      _nameController.clear();
+    });
+    if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Đã đăng xuất tài khoản Google')));
   }
 
   @override
   Widget build(BuildContext context) {
     final user = FirebaseAuth.instance.currentUser;
-
     return Scaffold(
       extendBodyBehindAppBar: true,
       appBar: AppBar(
@@ -172,7 +169,6 @@ class _StartScreenState extends State<StartScreen> {
         elevation: 0,
         iconTheme: const IconThemeData(color: Colors.indigo, size: 35),
       ),
-      // MENU BÊN TRÁI
       drawer: Drawer(
         child: ListView(
           padding: EdgeInsets.zero,
@@ -232,7 +228,7 @@ class _StartScreenState extends State<StartScreen> {
             else
               ListTile(
                 leading: const Icon(Icons.login_rounded, color: Colors.green, size: 30),
-                title: const Text('Đăng nhập', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.green)),
+                title: const Text('Đăng nhập Google', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.green)),
                 onTap: () {
                   Navigator.pop(context);
                   _login();
@@ -258,25 +254,44 @@ class _StartScreenState extends State<StartScreen> {
                 const SizedBox(height: 15),
                 const Text("Chào mừng bé!", style: TextStyle(fontSize: 32, fontWeight: FontWeight.bold, color: Colors.indigo)),
                 const SizedBox(height: 15),
-
-                // Ô NHẬP TÊN BÉ GỌN GÀNG TẠI TRANG CHỦ
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 40),
-                  child: TextField(
-                    controller: _nameController,
-                    textAlign: TextAlign.center,
-                    style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Colors.indigo),
-                    decoration: InputDecoration(
-                      hintText: "Nhập tên bé vào đây nhé", filled: true, fillColor: Colors.white,
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(20), borderSide: BorderSide.none),
-                      prefixIcon: const Icon(Icons.edit, color: Colors.orange),
+                if (user != null)
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 30, vertical: 15),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(color: Colors.orange, width: 3),
+                      boxShadow: [BoxShadow(color: Colors.orange.withOpacity(0.3), blurRadius: 10, offset: const Offset(0, 5))],
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(Icons.stars_rounded, color: Colors.amber, size: 35),
+                        const SizedBox(width: 10),
+                        Text(
+                          user.displayName ?? "Bạn nhỏ",
+                          style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Colors.indigo),
+                        ),
+                      ],
+                    ),
+                  )
+                else
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 40),
+                    child: TextField(
+                      controller: _nameController,
+                      textAlign: TextAlign.center,
+                      style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Colors.indigo),
+                      decoration: InputDecoration(
+                        hintText: "Nhập tên bé vào đây nhé", filled: true, fillColor: Colors.white,
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(20), borderSide: BorderSide.none),
+                        prefixIcon: const Icon(Icons.edit, color: Colors.orange),
+                      ),
                     ),
                   ),
-                ),
-
-                const SizedBox(height: 35),
+                const SizedBox(height: 40),
                 const Text("Bé chọn độ khó nào?", style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.indigo)),
-                const SizedBox(height: 10),
+                const SizedBox(height: 15),
                 Padding(
                   padding: const EdgeInsets.symmetric(horizontal: 20),
                   child: Row(
@@ -292,18 +307,21 @@ class _StartScreenState extends State<StartScreen> {
                 ElevatedButton(
                   style: ElevatedButton.styleFrom(
                     backgroundColor: const Color(0xFFFF9800), padding: const EdgeInsets.symmetric(horizontal: 60, vertical: 15),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)),
-                    elevation: 5,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(30)), elevation: 5,
                   ),
                   onPressed: () {
-                    String name = _nameController.text.trim();
-                    if (name.isEmpty) name = "Bạn nhỏ ẩn danh";
-                    _savePlayerName(name);
-
+                    String name = "";
+                    if (user != null) { name = user.displayName ?? "Bạn nhỏ ẩn danh"; }
+                    else {
+                      name = _nameController.text.trim();
+                      if (name.isEmpty) name = "Bạn nhỏ ẩn danh";
+                      _savePlayerName(name);
+                    }
                     Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => GameScreen(playerName: name, difficulty: _selectedDifficulty)));
                   },
                   child: const Text("VÀO CHƠI", style: TextStyle(fontSize: 26, fontWeight: FontWeight.bold, color: Colors.white)),
                 ),
+                const SizedBox(height: 50),
               ],
             ),
           ),
@@ -352,15 +370,10 @@ class LeaderboardScreen extends StatelessWidget {
             .limit(10)
             .snapshots(),
         builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(child: CircularProgressIndicator(color: Colors.amber));
-          }
-          if (snapshot.hasError) {
-            return const Center(child: Text("Lỗi kết nối mạng!", style: TextStyle(color: Colors.red, fontSize: 18)));
-          }
-          if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-            return const Center(child: Text("Chưa có ai chơi cả. Bé hãy là người đầu tiên nhé!", style: TextStyle(fontSize: 18, color: Colors.grey)));
-          }
+          if (snapshot.connectionState == ConnectionState.waiting) return const Center(child: CircularProgressIndicator(color: Colors.amber));
+          if (snapshot.hasError) return const Center(child: Text("Lỗi kết nối mạng!", style: TextStyle(color: Colors.red, fontSize: 18)));
+          if (!snapshot.hasData || snapshot.data!.docs.isEmpty) return const Center(child: Text("Chưa có ai chơi cả. Bé hãy là người đầu tiên nhé!", style: TextStyle(fontSize: 18, color: Colors.grey)));
+
           final docs = snapshot.data!.docs;
           return ListView.builder(
             padding: const EdgeInsets.all(20),
@@ -385,7 +398,7 @@ class LeaderboardScreen extends StatelessWidget {
 }
 
 // ==========================================
-// --- MÀN HÌNH TRÒ CHƠI ---
+// --- MÀN HÌNH TRÒ CHƠI CHÍNH ---
 // ==========================================
 class GameScreen extends StatefulWidget {
   final String playerName;
@@ -400,75 +413,88 @@ class _GameScreenState extends State<GameScreen> {
   final AudioPlayer _audioPlayer = AudioPlayer();
   Timer? _timer;
   int _timeLeft = 15;
-
-  // 1. DỮ LIỆU OFFLINE CÓ SẴN
-  final List<Animal> localQuestions = [
-    Animal(name: "CON MÈO", imageUrl: "assets/images/cat.png", soundFile: "cat.mp3", question: "Đố bé đây là bạn nào nè?", options: ["CON GÀ", "CON CHÓ", "CON MÈO", "CON THỎ"]),
-    Animal(name: "CON CHÓ", imageUrl: "assets/images/dog.png", soundFile: "dog.mp3", question: "Bạn nào hay vẫy đuôi chào bé?", options: ["CON CHÓ", "CON HỔ", "CON LỢN", "CON MÈO"]),
-    Animal(name: "CON GÀ", imageUrl: "assets/images/chicken.png", soundFile: "chicken.mp3", question: "Con gì gáy Ò ó o o mỗi sáng?", options: ["CON VỊT", "CON GÀ", "CON CHIM", "CON DÊ"]),
-    Animal(name: "CON BÒ", imageUrl: "assets/images/cow.png", soundFile: "cow.mp3", question: "Bạn nào cho chúng ta sữa tươi uống nhỉ?", options: ["CON BÒ", "CON NGỰA", "CON DÊ", "CON CỪU"]),
-    Animal(name: "CON LỢN", imageUrl: "assets/images/pig.png", soundFile: "pig.mp3", question: "Con gì kêu Ụt ịt ụt ịt?", options: ["CON CHÓ", "CON LỢN", "CON MÈO", "CON VOI"]),
-    Animal(name: "CON KHỈ", imageUrl: "assets/images/monkey.png", soundFile: "monkey.mp3", question: "Bạn nào leo trèo giỏi và thích ăn chuối?", options: ["CON KHỈ", "CON HƯƠU", "CON GẤU", "CON CÁO"]),
-  ];
-
   List<Animal> questions = [];
-  bool isLoading = true;
-
   int currentIndex = 0;
   List<String> shuffledOptions = [];
   int currentStars = 0;
   bool is5050Used = false;
   bool isSkipUsed = false;
+  bool isLoading = true;
 
   @override
   void initState() {
     super.initState();
-    _loadData();
+    _loadGameData();
   }
 
-  // --- HÀM TẢI ONLINE/OFFLINE KẾT HỢP ĐƯỢC CẢI TIẾN ---
-  void _loadData() async {
-    List<Animal> combinedQuestions = List.from(localQuestions);
+  void _loadGameData() async {
+    List<Animal> combinedAnimals = [
+      Animal(name: "CON MÈO", imageUrl: "assets/images/cat.png", soundFile: "cat.mp3", question: "Đố bé đây là bạn nào nè?", options: ["CON GÀ", "CON CHÓ", "CON MÈO", "CON THỎ"]),
+      Animal(name: "CON CHÓ", imageUrl: "assets/images/dog.png", soundFile: "dog.mp3", question: "Bạn nào hay vẫy đuôi chào bé?", options: ["CON CHÓ", "CON HỔ", "CON LỢN", "CON MÈO"]),
+      Animal(name: "CON GÀ", imageUrl: "assets/images/chicken.png", soundFile: "chicken.mp3", question: "Con gì gáy Ò ó o o mỗi sáng?", options: ["CON VỊT", "CON GÀ", "CON CHIM", "CON DÊ"]),
+      Animal(name: "CON BÒ", imageUrl: "assets/images/cow.png", soundFile: "cow.mp3", question: "Bạn nào cho chúng ta sữa tươi uống nhỉ?", options: ["CON BÒ", "CON NGỰA", "CON DÊ", "CON CỪU"]),
+      Animal(name: "CON LỢN", imageUrl: "assets/images/pig.png", soundFile: "pig.mp3", question: "Con gì kêu Ụt ịt ụt ịt?", options: ["CON CHÓ", "CON LỢN", "CON MÈO", "CON VOI"]),
+      Animal(name: "CON KHỈ", imageUrl: "assets/images/monkey.png", soundFile: "monkey.mp3", question: "Bạn nào leo trèo giỏi và thích ăn chuối?", options: ["CON KHỈ", "CON HƯƠU", "CON GẤU", "CON CÁO"]),
+    ];
+
     try {
-      var snapshot = await FirebaseFirestore.instance.collection('animals').get().timeout(const Duration(seconds: 5));
-      List<Animal> onlineQuestions = snapshot.docs.map((doc) => Animal.fromMap(doc.data())).toList();
-      combinedQuestions.addAll(onlineQuestions);
+      QuerySnapshot<Map<String, dynamic>> snapshot;
+      try {
+        snapshot = await FirebaseFirestore.instance.collection('animals').get(const GetOptions(source: Source.cache)) as QuerySnapshot<Map<String, dynamic>>;
+        if (snapshot.docs.isEmpty) {
+          snapshot = await FirebaseFirestore.instance.collection('animals').get(const GetOptions(source: Source.server)) as QuerySnapshot<Map<String, dynamic>>;
+        }
+      } catch (e) {
+        snapshot = await FirebaseFirestore.instance.collection('animals').get(const GetOptions(source: Source.server)) as QuerySnapshot<Map<String, dynamic>>;
+      }
+
+      if (snapshot.docs.isNotEmpty) {
+        List<Animal> onlineAnimals = snapshot.docs.map((doc) => Animal.fromMap(doc.data())).toList();
+        combinedAnimals.addAll(onlineAnimals);
+      }
     } catch (e) {
-      debugPrint("Đang chơi Offline: $e");
+      debugPrint("Lỗi kết nối mạng, đang nạp dữ liệu Offline.");
     }
 
-    combinedQuestions.shuffle();
+    combinedAnimals.shuffle();
     if (mounted) {
       setState(() {
-        questions = combinedQuestions;
+        questions = combinedAnimals;
         isLoading = false;
+        _initGame();
       });
-      _initGame();
     }
   }
 
   @override
-  void dispose() { _timer?.cancel(); _audioPlayer.dispose(); super.dispose(); }
+  void dispose() {
+    _timer?.cancel();
+    _audioPlayer.dispose();
+    super.dispose();
+  }
 
   void _startTimer() {
     _timer?.cancel();
     if (widget.difficulty == Difficulty.easy) return;
     _timeLeft = widget.difficulty == Difficulty.hard ? 10 : 15;
     _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
-      setState(() { if (_timeLeft > 0) _timeLeft--; else { _timer?.cancel(); _onTimeOut(); } });
+      setState(() {
+        if (_timeLeft > 0) _timeLeft--;
+        else { _timer?.cancel(); _onTimeOut(); }
+      });
     });
   }
 
-  // --- HÀM PHÁT ÂM THANH CÓ CACHE ---
   void _playSound(String fileOrUrl) async {
     try {
-      if (fileOrUrl.startsWith('http')) {
-        var file = await DefaultCacheManager().getSingleFile(fileOrUrl);
-        await _audioPlayer.play(DeviceFileSource(file.path));
+      if (fileOrUrl.startsWith('http') || fileOrUrl.startsWith('https')) {
+        await _audioPlayer.play(UrlSource(fileOrUrl));
       } else {
         await _audioPlayer.play(AssetSource('sounds/$fileOrUrl'));
       }
-    } catch (e) { debugPrint("Lỗi âm thanh: $e"); }
+    } catch (e) {
+      debugPrint("Lỗi âm thanh: $e");
+    }
   }
 
   void _initGame() {
@@ -515,7 +541,6 @@ class _GameScreenState extends State<GameScreen> {
   void _saveScoreAndFinish() async {
     _timer?.cancel();
     _playSound('correct.mp3');
-
     User? currentUser = FirebaseAuth.instance.currentUser;
 
     if (currentUser == null) {
@@ -564,6 +589,7 @@ class _GameScreenState extends State<GameScreen> {
     if (currentUser != null) {
       String diffString = widget.difficulty == Difficulty.easy ? "(Dễ)" : (widget.difficulty == Difficulty.medium ? "(Vừa)" : "(Khó)");
       String finalName = widget.playerName;
+
       try {
         await FirebaseFirestore.instance.collection('leaderboard').add({
           'name': '$finalName $diffString',
@@ -616,7 +642,11 @@ class _GameScreenState extends State<GameScreen> {
         actions: [
           ElevatedButton(
             style: ElevatedButton.styleFrom(backgroundColor: color),
-            onPressed: () { Navigator.pop(context); if (isCorrect || isTimeout) _nextQuestion(); else { _playSound(questions[currentIndex].soundFile); _startTimer(); } },
+            onPressed: () {
+              Navigator.pop(context);
+              if (isCorrect || isTimeout) _nextQuestion();
+              else { _playSound(questions[currentIndex].soundFile); _startTimer(); }
+            },
             child: Text(isCorrect || isTimeout ? "Tiếp tục" : "Thử lại", style: const TextStyle(color: Colors.white)),
           )
         ],
@@ -624,42 +654,12 @@ class _GameScreenState extends State<GameScreen> {
     );
   }
 
-  @override Widget build(BuildContext context) {
-    if (isLoading) {
-      return Scaffold(
-        body: Container(
-          decoration: const BoxDecoration(gradient: LinearGradient(colors: [Color(0xFF89CFF0), Color(0xFFE6E6FA)], begin: Alignment.topCenter, end: Alignment.bottomCenter)),
-          child: const Center(
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                CircularProgressIndicator(color: Colors.orange),
-                SizedBox(height: 20),
-                Text("Đang gọi các bạn thú tới...", style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.indigo))
-              ],
-            ),
-          ),
-        ),
-      );
-    }
+  @override
+  Widget build(BuildContext context) {
+    if (isLoading) return const Scaffold(body: Center(child: CircularProgressIndicator(color: Colors.orange)));
 
     Animal currentQuestion = questions[currentIndex];
     bool isHardMode = widget.difficulty == Difficulty.hard;
-
-    // HIỂN THỊ ẢNH CÓ CACHE
-    Widget animalImage;
-    if (isHardMode) {
-      animalImage = const Center(child: Icon(Icons.question_mark_rounded, size: 100, color: Colors.white));
-    } else if (currentQuestion.imageUrl.startsWith('http')) {
-      animalImage = CachedNetworkImage(
-        imageUrl: currentQuestion.imageUrl,
-        fit: BoxFit.cover,
-        placeholder: (context, url) => const Center(child: CircularProgressIndicator(color: Colors.orange)),
-        errorWidget: (context, url, error) => const Icon(Icons.wifi_off_rounded, size: 50, color: Colors.grey),
-      );
-    } else {
-      animalImage = Image.asset(currentQuestion.imageUrl, fit: BoxFit.cover);
-    }
 
     return Scaffold(
       body: Container(
@@ -683,6 +683,21 @@ class _GameScreenState extends State<GameScreen> {
                   ],
                 ),
               ),
+
+              // --- HIỂN THỊ CÂU HỎI HIỆN TẠI ---
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                decoration: BoxDecoration(
+                  color: Colors.white.withOpacity(0.6),
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: Text(
+                    "Câu ${currentIndex + 1} / ${questions.length}",
+                    style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.deepOrange)
+                ),
+              ),
+              // --------------------------------
+
               const Spacer(),
               Text(isHardMode ? "Nghe tiếng và đoán xem!" : currentQuestion.question, textAlign: TextAlign.center, style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Colors.indigo)),
               const SizedBox(height: 20),
@@ -693,13 +708,19 @@ class _GameScreenState extends State<GameScreen> {
                   decoration: BoxDecoration(color: isHardMode ? Colors.indigoAccent : Colors.white, borderRadius: BorderRadius.circular(24), border: Border.all(color: Colors.white, width: 8)),
                   child: ClipRRect(
                     borderRadius: BorderRadius.circular(16),
-                    child: animalImage,
+                    child: isHardMode ?
+                    const Center(child: Icon(Icons.question_mark_rounded, size: 100, color: Colors.white))
+                        : (currentQuestion.imageUrl.startsWith('http')
+                        ? CachedNetworkImage(
+                      imageUrl: currentQuestion.imageUrl, fit: BoxFit.cover,
+                      placeholder: (context, url) => const Center(child: CircularProgressIndicator()),
+                      errorWidget: (context, url, error) => const Icon(Icons.broken_image, size: 80, color: Colors.grey),
+                    )
+                        : Image.asset(currentQuestion.imageUrl, fit: BoxFit.cover)),
                   ),
                 ),
               ),
               const Spacer(),
-
-              // CÁC NÚT TRỢ GIÚP
               Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 20),
                 child: Row(
@@ -711,7 +732,6 @@ class _GameScreenState extends State<GameScreen> {
                 ),
               ),
               const SizedBox(height: 20),
-
               Container(
                 width: double.infinity, padding: const EdgeInsets.all(20),
                 decoration: const BoxDecoration(color: Colors.white, borderRadius: BorderRadius.vertical(top: Radius.circular(30))),
@@ -735,17 +755,34 @@ class _GameScreenState extends State<GameScreen> {
 // --- MÀN HÌNH CHIẾN THẮNG ---
 // ==========================================
 class VictoryScreen extends StatefulWidget {
-  final String playerName; final int stars; final int total;
+  final String playerName;
+  final int stars;
+  final int total;
+
   const VictoryScreen({super.key, required this.playerName, required this.stars, required this.total});
-  @override State<VictoryScreen> createState() => _VictoryScreenState();
+
+  @override
+  State<VictoryScreen> createState() => _VictoryScreenState();
 }
 
 class _VictoryScreenState extends State<VictoryScreen> {
   late ConfettiController _confettiController;
-  @override void initState() { super.initState(); _confettiController = ConfettiController(duration: const Duration(seconds: 3)); _confettiController.play(); }
-  @override void dispose() { _confettiController.dispose(); super.dispose(); }
 
-  @override Widget build(BuildContext context) {
+  @override
+  void initState() {
+    super.initState();
+    _confettiController = ConfettiController(duration: const Duration(seconds: 3));
+    _confettiController.play();
+  }
+
+  @override
+  void dispose() {
+    _confettiController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: const Color(0xFFFFFACD),
       body: Stack(
@@ -761,18 +798,27 @@ class _VictoryScreenState extends State<VictoryScreen> {
               Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  ElevatedButton(onPressed: () => Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => const StartScreen())), child: const Text("CHƠI LẠI")),
+                  ElevatedButton(
+                      onPressed: () => Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => const StartScreen())),
+                      child: const Text("CHƠI LẠI")
+                  ),
                   const SizedBox(width: 20),
                   ElevatedButton(
                     style: ElevatedButton.styleFrom(backgroundColor: Colors.indigoAccent, foregroundColor: Colors.white),
-                    onPressed: () { Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => const StartScreen())); Navigator.push(context, MaterialPageRoute(builder: (context) => const LeaderboardScreen())); },
+                    onPressed: () {
+                      Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => const StartScreen()));
+                      Navigator.push(context, MaterialPageRoute(builder: (context) => const LeaderboardScreen()));
+                    },
                     child: const Text("XEM BẢNG VÀNG"),
                   ),
                 ],
               )
             ],
           ),
-          Align(alignment: Alignment.topCenter, child: ConfettiWidget(confettiController: _confettiController, blastDirectionality: BlastDirectionality.explosive)),
+          Align(
+              alignment: Alignment.topCenter,
+              child: ConfettiWidget(confettiController: _confettiController, blastDirectionality: BlastDirectionality.explosive)
+          ),
         ],
       ),
     );
