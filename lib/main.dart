@@ -1,6 +1,7 @@
 import 'dart:async';
+import 'dart:ui';
 import 'package:flutter/material.dart';
-import 'package:audioplayers/audioplayers.dart' hide Source; // Ẩn Source để không xung đột với Firebase
+import 'package:audioplayers/audioplayers.dart' hide Source;
 import 'package:confetti/confetti.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:firebase_core/firebase_core.dart';
@@ -105,9 +106,9 @@ class _StartScreenState extends State<StartScreen> {
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         title: const Row(children: [Icon(Icons.menu_book_rounded, color: Colors.blue), SizedBox(width: 10), Text("Hướng dẫn chơi")]),
         content: const Text(
-          "⭐ Mức DỄ: Trẻ nhỏ đoán hình với 2 đáp án, không tính giờ.\n\n"
-              "⭐ Mức VỪA: 4 đáp án, có 15 giây để suy nghĩ.\n\n"
-              "⭐ Mức KHÓ: Màn hình bị che, bé phải nghe tiếng kêu và đoán trong 10 giây!\n\n"
+          "⭐ Mức DỄ: Trẻ nhỏ đoán hình rõ nét với 2 đáp án, không tính giờ. Chơi thoải mái không sợ thua.\n\n"
+              "⭐ Mức VỪA: 4 đáp án, có 45 giây để suy nghĩ. Bé có 5 mạng.\n\n"
+              "⭐ Mức KHÓ: Màn hình hiện ảnh bị làm mờ, nghe tiếng kêu và đoán trong 30 giây! Khi đoán đúng hình nét sẽ hiện ra. Bé có 3 mạng.\n\n"
               "💡 Mẹo: Dùng quyền trợ giúp 50/50 hoặc Đổi câu nếu thấy khó nhé!",
           style: TextStyle(fontSize: 16, height: 1.5),
         ),
@@ -123,7 +124,7 @@ class _StartScreenState extends State<StartScreen> {
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
         title: const Row(children: [Icon(Icons.info_outline, color: Colors.orange), SizedBox(width: 10), Text("Thông tin")]),
         content: const Text(
-          "Ứng dụng: Đoán Tên Loài Vật\nPhiên bản: 2.0.0 (Tích hợp Online)\n\nMột trò chơi giáo dục vui nhộn giúp bé khám phá thế giới động vật.",
+          "Ứng dụng: Đoán Tên Loài Vật\nPhiên bản: 3.0.0 (Tối ưu UI & Tính năng)\n\nMột trò chơi giáo dục vui nhộn giúp bé khám phá thế giới động vật.",
           style: TextStyle(fontSize: 16, height: 1.5),
         ),
         actions: [TextButton(onPressed: () => Navigator.pop(context), child: const Text("ĐÓNG", style: TextStyle(fontSize: 18)))],
@@ -412,7 +413,7 @@ class GameScreen extends StatefulWidget {
 class _GameScreenState extends State<GameScreen> {
   final AudioPlayer _audioPlayer = AudioPlayer();
   Timer? _timer;
-  int _timeLeft = 15;
+  int _timeLeft = 45;
   List<Animal> questions = [];
   int currentIndex = 0;
   List<String> shuffledOptions = [];
@@ -420,10 +421,20 @@ class _GameScreenState extends State<GameScreen> {
   bool is5050Used = false;
   bool isSkipUsed = false;
   bool isLoading = true;
+  int _lives = 0;
+  bool _isRevealed = false;
+  bool _isMuted = false;
 
   @override
   void initState() {
     super.initState();
+
+    if (widget.difficulty == Difficulty.medium) {
+      _lives = 5;
+    } else if (widget.difficulty == Difficulty.hard) {
+      _lives = 3;
+    }
+
     _loadGameData();
   }
 
@@ -476,7 +487,9 @@ class _GameScreenState extends State<GameScreen> {
   void _startTimer() {
     _timer?.cancel();
     if (widget.difficulty == Difficulty.easy) return;
-    _timeLeft = widget.difficulty == Difficulty.hard ? 10 : 15;
+
+    _timeLeft = widget.difficulty == Difficulty.hard ? 30 : 45;
+
     _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
       setState(() {
         if (_timeLeft > 0) _timeLeft--;
@@ -485,7 +498,31 @@ class _GameScreenState extends State<GameScreen> {
     });
   }
 
+  void _resumeTimer() {
+    _timer?.cancel();
+    if (widget.difficulty == Difficulty.easy) return;
+    _timer = Timer.periodic(const Duration(seconds: 1), (timer) {
+      setState(() {
+        if (_timeLeft > 0) _timeLeft--;
+        else { _timer?.cancel(); _onTimeOut(); }
+      });
+    });
+  }
+
+  void _toggleMute() {
+    setState(() {
+      _isMuted = !_isMuted;
+      if (_isMuted) {
+        _audioPlayer.stop();
+      } else {
+        _playSound(questions[currentIndex].soundFile);
+      }
+    });
+  }
+
   void _playSound(String fileOrUrl) async {
+    if (_isMuted) return;
+
     try {
       if (fileOrUrl.startsWith('http') || fileOrUrl.startsWith('https')) {
         await _audioPlayer.play(UrlSource(fileOrUrl));
@@ -497,8 +534,51 @@ class _GameScreenState extends State<GameScreen> {
     }
   }
 
+  void _confirmExit() {
+    _timer?.cancel();
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+        title: const Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(Icons.warning_amber_rounded, color: Colors.redAccent, size: 35),
+            SizedBox(width: 10),
+            Text("Thoát trò chơi?", style: TextStyle(color: Colors.redAccent, fontWeight: FontWeight.bold, fontSize: 24)),
+          ],
+        ),
+        content: const Text(
+            "Bé có chắc chắn muốn thoát game không?\nĐiểm số hiện tại sẽ không được lưu nhé!",
+            textAlign: TextAlign.center,
+            style: TextStyle(fontSize: 18)
+        ),
+        actionsAlignment: MainAxisAlignment.spaceEvenly,
+        actions: [
+          TextButton(
+            onPressed: () {
+              Navigator.pop(context);
+              _resumeTimer();
+            },
+            child: const Text("Chơi tiếp", style: TextStyle(fontSize: 18, color: Colors.green, fontWeight: FontWeight.bold)),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.redAccent),
+            onPressed: () {
+              Navigator.pop(context);
+              Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => const StartScreen()));
+            },
+            child: const Text("Thoát luôn", style: TextStyle(color: Colors.white, fontSize: 18, fontWeight: FontWeight.bold)),
+          )
+        ],
+      ),
+    );
+  }
+
   void _initGame() {
     setState(() {
+      _isRevealed = false;
       Animal currentQ = questions[currentIndex];
       if (widget.difficulty == Difficulty.easy) {
         List<String> wrongOptions = List.from(currentQ.options)..remove(currentQ.name);
@@ -617,19 +697,57 @@ class _GameScreenState extends State<GameScreen> {
 
   void _onTimeOut() {
     _playSound('wrong.mp3');
-    _showDialog("Hết giờ rồi!", "Đáp án đúng là ${questions[currentIndex].name}.", Colors.orange, isCorrect: false, isTimeout: true);
+    _handleWrongAnswer("Hết giờ rồi!", "Đáp án đúng là ${questions[currentIndex].name}.", isTimeout: true);
   }
 
   void _onOptionSelected(String selectedOption) {
     _timer?.cancel();
     if (selectedOption == questions[currentIndex].name) {
       _playSound('correct.mp3');
-      setState(() => currentStars++);
+      setState(() {
+        currentStars++;
+        _isRevealed = true;
+      });
       _showDialog("Tuyệt vời!", "Bé đoán đúng rồi! 🌟", Colors.green, isCorrect: true);
     } else {
       _playSound('wrong.mp3');
-      _showDialog("Chưa đúng!", "Bé thử lại nhé! 💪", Colors.redAccent, isCorrect: false);
+      _handleWrongAnswer("Chưa đúng!", "Bé thử lại nhé! 💪", isTimeout: false);
     }
+  }
+
+  void _handleWrongAnswer(String title, String content, {required bool isTimeout}) {
+    if (widget.difficulty == Difficulty.easy) {
+      _showDialog(title, content, Colors.redAccent, isCorrect: false, isTimeout: isTimeout);
+    } else {
+      setState(() { _lives--; });
+
+      if (_lives <= 0) {
+        _showGameOverDialog();
+      } else {
+        _showDialog(title, "$content\nBé còn $_lives mạng nhé!", Colors.orange, isCorrect: false, isTimeout: isTimeout);
+      }
+    }
+  }
+
+  void _showGameOverDialog() {
+    showDialog(
+      context: context, barrierDismissible: false,
+      builder: (context) => AlertDialog(
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+        title: const Text("Hết mạng rồi!", textAlign: TextAlign.center, style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold, fontSize: 26)),
+        content: const Text("Rất tiếc bé đã hết lượt chơi.\nCùng xem điểm số bé đạt được nhé!", textAlign: TextAlign.center, style: TextStyle(fontSize: 20)),
+        actions: [
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+            onPressed: () {
+              Navigator.pop(context);
+              _saveScoreAndFinish();
+            },
+            child: const Text("Xem điểm", style: TextStyle(color: Colors.white)),
+          )
+        ],
+      ),
+    );
   }
 
   void _showDialog(String title, String content, Color color, {required bool isCorrect, bool isTimeout = false}) {
@@ -661,89 +779,213 @@ class _GameScreenState extends State<GameScreen> {
     Animal currentQuestion = questions[currentIndex];
     bool isHardMode = widget.difficulty == Difficulty.hard;
 
-    return Scaffold(
-      body: Container(
-        decoration: const BoxDecoration(gradient: LinearGradient(colors: [Color(0xFF89CFF0), Color(0xFFE6E6FA)], begin: Alignment.topCenter, end: Alignment.bottomCenter)),
-        child: SafeArea(
-          child: Column(
-            children: [
-              Padding(
-                padding: const EdgeInsets.all(15.0),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text("Bé: ${widget.playerName}", style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.indigo)),
-                    if (widget.difficulty != Difficulty.easy)
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-                        decoration: BoxDecoration(color: _timeLeft <= 3 ? Colors.red : Colors.white, borderRadius: BorderRadius.circular(20)),
-                        child: Text("$_timeLeft s", style: TextStyle(fontWeight: FontWeight.bold, color: _timeLeft <= 3 ? Colors.white : Colors.indigo)),
+    // Tính toán chiều rộng nút bấm để không bị tràn ngang
+    double buttonWidth = widget.difficulty == Difficulty.easy
+        ? double.infinity
+        : (MediaQuery.of(context).size.width - 50) / 2;
+
+    return WillPopScope(
+      onWillPop: () async {
+        _confirmExit();
+        return false;
+      },
+      child: Scaffold(
+        body: Container(
+          decoration: const BoxDecoration(
+              gradient: LinearGradient(colors: [Color(0xFF89CFF0), Color(0xFFE6E6FA)], begin: Alignment.topCenter, end: Alignment.bottomCenter)
+          ),
+          child: SafeArea(
+            // KHẮC PHỤC BOTTOM OVERFLOW: Cho phép màn hình cuộn nếu thiết bị quá ngắn
+            child: LayoutBuilder(
+                builder: (context, constraints) {
+                  return SingleChildScrollView(
+                    child: ConstrainedBox(
+                      constraints: BoxConstraints(minHeight: constraints.maxHeight),
+                      child: IntrinsicHeight(
+                        child: Column(
+                          children: [
+
+                            // --- 1. THANH TRẠNG THÁI (KHẮC PHỤC RIGHT OVERFLOW) ---
+                            Padding(
+                              padding: const EdgeInsets.all(12.0),
+                              child: Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                children: [
+                                  // Khối bên trái: Nút thoát, Tắt âm, Tên và Mạng (Dùng Expanded để ép không lấn sang phải)
+                                  Expanded(
+                                    child: Row(
+                                      children: [
+                                        IconButton(
+                                          icon: const Icon(Icons.cancel, color: Colors.redAccent, size: 32),
+                                          padding: EdgeInsets.zero,
+                                          constraints: const BoxConstraints(),
+                                          onPressed: _confirmExit,
+                                        ),
+                                        const SizedBox(width: 8),
+                                        IconButton(
+                                          icon: Icon(
+                                            _isMuted ? Icons.volume_off_rounded : Icons.volume_up_rounded,
+                                            color: _isMuted ? Colors.grey : Colors.indigo,
+                                            size: 32,
+                                          ),
+                                          padding: EdgeInsets.zero,
+                                          constraints: const BoxConstraints(),
+                                          onPressed: _toggleMute,
+                                        ),
+                                        const SizedBox(width: 8),
+                                        // Expanded bọc Text để nếu tên dài sẽ hiện "..."
+                                        Expanded(
+                                          child: Column(
+                                            crossAxisAlignment: CrossAxisAlignment.start,
+                                            children: [
+                                              Text(
+                                                "Bé: ${widget.playerName}",
+                                                style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.indigo),
+                                                overflow: TextOverflow.ellipsis, // Giới hạn tên dài
+                                              ),
+                                              if (widget.difficulty != Difficulty.easy)
+                                                Wrap( // Dùng Wrap cho trái tim lỡ màn hình quá bé
+                                                  children: List.generate(
+                                                    widget.difficulty == Difficulty.medium ? 5 : 3,
+                                                        (index) => Icon(
+                                                      index < _lives ? Icons.favorite : Icons.favorite_border,
+                                                      color: Colors.redAccent,
+                                                      size: 18,
+                                                    ),
+                                                  ),
+                                                ),
+                                            ],
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+
+                                  const SizedBox(width: 10),
+
+                                  // Khối bên phải: Đồng hồ và Điểm
+                                  Row(
+                                    mainAxisSize: MainAxisSize.min,
+                                    children: [
+                                      if (widget.difficulty != Difficulty.easy)
+                                        Container(
+                                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                                          decoration: BoxDecoration(color: _timeLeft <= 3 ? Colors.red : Colors.white, borderRadius: BorderRadius.circular(20)),
+                                          child: Text("$_timeLeft s", style: TextStyle(fontWeight: FontWeight.bold, color: _timeLeft <= 3 ? Colors.white : Colors.indigo)),
+                                        ),
+                                      const SizedBox(width: 10),
+                                      Row(children: [const Icon(Icons.star, color: Colors.amber), Text("$currentStars", style: const TextStyle(fontWeight: FontWeight.bold))]),
+                                    ],
+                                  ),
+                                ],
+                              ),
+                            ),
+
+                            // --- 2. CÂU HỎI HIỆN TẠI ---
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                              decoration: BoxDecoration(
+                                color: Colors.white.withOpacity(0.6),
+                                borderRadius: BorderRadius.circular(20),
+                              ),
+                              child: Text(
+                                  "Câu ${currentIndex + 1} / ${questions.length}",
+                                  style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.deepOrange)
+                              ),
+                            ),
+
+                            // --- 3. KHU VỰC HÌNH ẢNH (Ép dãn tối đa khoảng trống giữa) ---
+                            Expanded(
+                              child: Center(
+                                child: Column(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    const SizedBox(height: 10),
+                                    Padding(
+                                      padding: const EdgeInsets.symmetric(horizontal: 10),
+                                      child: Text(
+                                          isHardMode ? "Nhìn ảnh mờ, nghe tiếng kêu và đoán xem!" : currentQuestion.question,
+                                          textAlign: TextAlign.center,
+                                          style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Colors.indigo)
+                                      ),
+                                    ),
+                                    const SizedBox(height: 15),
+                                    GestureDetector(
+                                      onTap: () => _playSound(currentQuestion.soundFile),
+                                      child: Container(
+                                        height: 180, width: 240,
+                                        decoration: BoxDecoration(
+                                            color: Colors.white,
+                                            borderRadius: BorderRadius.circular(24),
+                                            border: Border.all(color: Colors.white, width: 8)
+                                        ),
+                                        child: ClipRRect(
+                                          borderRadius: BorderRadius.circular(16),
+                                          child: Builder(
+                                              builder: (context) {
+                                                Widget animalImage = currentQuestion.imageUrl.startsWith('http')
+                                                    ? CachedNetworkImage(
+                                                  imageUrl: currentQuestion.imageUrl, fit: BoxFit.cover,
+                                                  placeholder: (context, url) => const Center(child: CircularProgressIndicator()),
+                                                  errorWidget: (context, url, error) => const Icon(Icons.broken_image, size: 80, color: Colors.grey),
+                                                )
+                                                    : Image.asset(currentQuestion.imageUrl, fit: BoxFit.cover);
+
+                                                return (isHardMode && !_isRevealed)
+                                                    ? ImageFiltered(
+                                                  imageFilter: ImageFilter.blur(sigmaX: 6.0, sigmaY: 6.0),
+                                                  child: animalImage,
+                                                )
+                                                    : animalImage;
+                                              }
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                    const SizedBox(height: 10),
+                                  ],
+                                ),
+                              ),
+                            ),
+
+                            // --- 4. QUYỀN TRỢ GIÚP ---
+                            Padding(
+                              padding: const EdgeInsets.symmetric(horizontal: 10),
+                              child: Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  if (widget.difficulty != Difficulty.easy) ...[
+                                    ElevatedButton.icon(onPressed: is5050Used ? null : _use5050, icon: const Icon(Icons.star_half_rounded), label: const Text("50/50")),
+                                    const SizedBox(width: 15),
+                                  ],
+                                  ElevatedButton.icon(onPressed: isSkipUsed ? null : _useSkip, icon: const Icon(Icons.skip_next_rounded), label: const Text("Đổi câu")),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(height: 15),
+
+                            // --- 5. KHU VỰC ĐÁP ÁN ---
+                            Container(
+                              width: double.infinity, padding: const EdgeInsets.all(15),
+                              decoration: const BoxDecoration(color: Colors.white, borderRadius: BorderRadius.vertical(top: Radius.circular(30))),
+                              child: Wrap(
+                                spacing: 10, runSpacing: 10, alignment: WrapAlignment.center, // Thu nhỏ spacing một chút để an toàn
+                                children: shuffledOptions.map((opt) => SizedBox(
+                                  width: buttonWidth, height: 60,
+                                  child: ElevatedButton(
+                                      onPressed: () => _onOptionSelected(opt),
+                                      child: Text(opt, style: const TextStyle(fontSize: 18), textAlign: TextAlign.center)
+                                  ),
+                                )).toList(),
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
-                    Row(children: [const Icon(Icons.star, color: Colors.amber), Text("$currentStars", style: const TextStyle(fontWeight: FontWeight.bold))]),
-                  ],
-                ),
-              ),
-
-              // --- HIỂN THỊ CÂU HỎI HIỆN TẠI ---
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.6),
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                child: Text(
-                    "Câu ${currentIndex + 1} / ${questions.length}",
-                    style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Colors.deepOrange)
-                ),
-              ),
-              // --------------------------------
-
-              const Spacer(),
-              Text(isHardMode ? "Nghe tiếng và đoán xem!" : currentQuestion.question, textAlign: TextAlign.center, style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Colors.indigo)),
-              const SizedBox(height: 20),
-              GestureDetector(
-                onTap: () => _playSound(currentQuestion.soundFile),
-                child: Container(
-                  height: 180, width: 240,
-                  decoration: BoxDecoration(color: isHardMode ? Colors.indigoAccent : Colors.white, borderRadius: BorderRadius.circular(24), border: Border.all(color: Colors.white, width: 8)),
-                  child: ClipRRect(
-                    borderRadius: BorderRadius.circular(16),
-                    child: isHardMode ?
-                    const Center(child: Icon(Icons.question_mark_rounded, size: 100, color: Colors.white))
-                        : (currentQuestion.imageUrl.startsWith('http')
-                        ? CachedNetworkImage(
-                      imageUrl: currentQuestion.imageUrl, fit: BoxFit.cover,
-                      placeholder: (context, url) => const Center(child: CircularProgressIndicator()),
-                      errorWidget: (context, url, error) => const Icon(Icons.broken_image, size: 80, color: Colors.grey),
-                    )
-                        : Image.asset(currentQuestion.imageUrl, fit: BoxFit.cover)),
-                  ),
-                ),
-              ),
-              const Spacer(),
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 20),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                  children: [
-                    if (widget.difficulty != Difficulty.easy) ElevatedButton.icon(onPressed: is5050Used ? null : _use5050, icon: const Icon(Icons.star_half_rounded), label: const Text("50/50")),
-                    ElevatedButton.icon(onPressed: isSkipUsed ? null : _useSkip, icon: const Icon(Icons.skip_next_rounded), label: const Text("Đổi câu")),
-                  ],
-                ),
-              ),
-              const SizedBox(height: 20),
-              Container(
-                width: double.infinity, padding: const EdgeInsets.all(20),
-                decoration: const BoxDecoration(color: Colors.white, borderRadius: BorderRadius.vertical(top: Radius.circular(30))),
-                child: Wrap(
-                  spacing: 15, runSpacing: 15, alignment: WrapAlignment.center,
-                  children: shuffledOptions.map((opt) => SizedBox(
-                    width: widget.difficulty == Difficulty.easy ? double.infinity : 150, height: 60,
-                    child: ElevatedButton(onPressed: () => _onOptionSelected(opt), child: Text(opt, style: const TextStyle(fontSize: 20))),
-                  )).toList(),
-                ),
-              ),
-            ],
+                    ),
+                  );
+                }
+            ),
           ),
         ),
       ),
