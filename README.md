@@ -4,7 +4,7 @@
 
 [![GitHub Repo](https://img.shields.io/badge/GitHub-Repository-blue?logo=github)](https://github.com/Tran-van-cuong2002/animal_quiz_app)
 
-## 🌟 Tính năng nổi bật (Cập nhật bản 3.0)
+## 🌟 Tính năng nổi bật (Cập nhật bản 1.0)
 
 - **3 Chế độ chơi thử thách:**
   - **Dễ:** Trẻ nhỏ đoán hình rõ nét với 2 đáp án, không tính giờ, không giới hạn lượt sai.
