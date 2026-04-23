@@ -25,17 +25,17 @@ class GameScreen extends StatefulWidget {
 
 class _GameScreenState extends State<GameScreen> {
   // --- CÁC BIẾN QUẢN LÝ TRẠNG THÁI CỦA GAME ---
-  final AudioPlayer _audioPlayer = AudioPlayer(); // Bộ điều khiển phát âm thanh (phát tiếng kêu con vật, tiếng đúng/sai, v.v.)
-  Timer? _timer;            // Bộ đếm thời gian đếm ngược (dùng cho mức Vừa và Khó)
-  int _timeLeft = 45;       // Thời gian đếm ngược còn lại (tính bằng giây, mặc định 45s cho mức Vừa, 30s cho mức Khó, Mức Dễ không đếm giờ)
-  List<Animal> questions = []; // Danh sách câu hỏi (các con vật) đã được tải về từ Firebase và/hoặc dữ liệu Offline cài sẵn
+  final AudioPlayer _audioPlayer = AudioPlayer(); // Bộ điều khiển phát âm thanh
+  Timer? _timer;            // Bộ đếm thời gian (đếm ngược)
+  int _timeLeft = 45;       // Thời gian đếm ngược còn lại
+  List<Animal> questions = []; // Danh sách câu hỏi (các con vật)
   int currentIndex = 0;     // Vị trí câu hỏi hiện tại (bắt đầu từ 0)
-  List<String> shuffledOptions = []; // Danh sách 4 đáp án đã được xáo trộn ngẫu nhiên để hiển thị dưới dạng nút bấm (Để tránh trường hợp đáp án đúng luôn ở cùng 1 vị trí)
-  int currentStars = 0;     // Điểm số (số sao) đạt được tính đến cau hỏi hiện tạiasd
+  List<String> shuffledOptions = []; // Danh sách 4 đáp án sau khi xáo trộn
+  int currentStars = 0;     // Điểm số (số sao) đạt được
 
-  bool is5050Used = false;  // Biến kiểm tra xem đã dùng quyền trợ giúp 50/50 chưa (Nếu đã dùng thì không cho dùng lại)
-  bool isSkipUsed = false;  // Biến kiểm tra xem đã dùng quền trợ giúp Đổi câu chưa (Nếu đã dùng thì không cho dùng lại)
-  bool isLoading = true;    // Màn hình có đang trong trạng thái tải dữ liệu hay không (true = đang tải, false = đã tải xong và sẵn sàng chơi)
+  bool is5050Used = false;  // Biến kiểm tra xem đã dùng quyền trợ giúp 50/50 chưa
+  bool isSkipUsed = false;  // Biến kiểm tra xem đã dùng quyền đổi câu chưa
+  bool isLoading = true;    // Màn hình có đang trong trạng thái Tải dữ liệu không
   int _lives = 0;           // Số mạng sống hiện tại
   bool _isRevealed = false; // Biến kiểm tra xem ảnh đã được lật (bỏ làm mờ) chưa
   bool _isMuted = false;    // Biến kiểm tra trạng thái Bật/Tắt âm thanh
@@ -662,4 +662,5 @@ class _GameScreenState extends State<GameScreen> {
       ),
     );
   }
+
 }
