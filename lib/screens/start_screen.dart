@@ -8,7 +8,7 @@ import '../models/animal.dart';
 import 'game_screen.dart';
 import 'leaderboard_screen.dart';
 
-// Màn hình bắt đầu (StartScreen) - Nơi bé nhập tên, chọn độ khó và đăng nhập
+// Màn hình bắt đầu (StartScreen) - Nơi bé chọn tên, độ khó và bắt đầu chơi
 class StartScreen extends StatefulWidget {
   const StartScreen({super.key});
 
@@ -17,10 +17,10 @@ class StartScreen extends StatefulWidget {
 }
 
 class _StartScreenState extends State<StartScreen> {
-  // Bộ điều khiển (Controller) dùng để lấy dữ liệu từ ô nhập Tên của bé
+  // Bộ điều khiển (Controller) để quản lý nội dung của ô nhập tên người chơi
   final TextEditingController _nameController = TextEditingController();
 
-  // Biến lưu trữ độ khó đang được chọn (Mặc định mở app lên là mức Vừa)
+  // Biến lưu trữ độ khó đang được chọn, mặc định là Mức VỪA
   Difficulty _selectedDifficulty = Difficulty.medium;
 
   // Hàm initState luôn chạy ĐẦU TIÊN khi màn hình này được mở lên
