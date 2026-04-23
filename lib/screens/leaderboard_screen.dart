@@ -37,20 +37,20 @@ class LeaderboardScreen extends StatelessWidget {
             padding: const EdgeInsets.all(20),
             itemCount: docs.length,
             itemBuilder: (context, index) {
-              // Ép kiểu dữ liệu lấy về thành Map
+              // Ép kiểu dữ liệu của mỗi tài liệu thành Map<String, dynamic> để dễ truy cập
               var player = docs[index].data() as Map<String, dynamic>;
 
-              // Chia màu huy chương cho top 1, 2, 3
+              // Chia màu huy chương cho top 3: vàng, bạc, đồng; những người còn lại sẽ có màu xanh nhạt
               Color medalColor = index == 0 ? Colors.amber : (index == 1 ? Colors.blueGrey[300]! : (index == 2 ? Colors.brown[400]! : Colors.indigo[100]!));
 
               return Card(
                 elevation: 4, margin: const EdgeInsets.only(bottom: 15), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
                 child: ListTile(
-                  // Biểu tượng bên trái (Huy chương hoặc số thứ tự)
+                  // Biểu tượng bên trái: Huy chương cho top 3, số thứ hạng cho những người còn lại
                   leading: CircleAvatar(backgroundColor: medalColor, child: index < 3 ? const Icon(Icons.military_tech_rounded, color: Colors.white) : Text("#${index + 1}")),
                   // Tên người chơi
                   title: Text(player['name'] ?? "Ẩn danh", style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.indigo)),
-                  // Điểm số và icon ngôi sao bên phải
+                  // Điểm số và ico`n sao ở bên phải
                   trailing: Row(mainAxisSize: MainAxisSize.min, children: [Text("${player['score']}", style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Colors.orange)), const Icon(Icons.star_rounded, color: Colors.amber)]),
                 ),
               );
