@@ -15,20 +15,20 @@ class VictoryScreen extends StatefulWidget {
 }
 
 class _VictoryScreenState extends State<VictoryScreen> {
-  // Bộ điều khiển hiệu ứng pháo giấy
+  // Bộ điều khiển (Controller) để quản lý hiệu ứng pháo giấy
   late ConfettiController _confettiController;
 
   @override
   void initState() {
     super.initState();
-    // Khởi tạo pháo giấy bắn trong 3 giây
+    // Khởi tạo pháo giấy với thời lượng 3 giây và bắt
     _confettiController = ConfettiController(duration: const Duration(seconds: 3));
     _confettiController.play();
   }
 
   @override
   void dispose() {
-    // Dọn dẹp bộ nhớ khi thoát màn hình
+    // Dọn dẹp bộ nhớ khigit
     _confettiController.dispose();
     super.dispose();
   }
